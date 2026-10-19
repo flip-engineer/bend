@@ -2709,11 +2709,21 @@ function emit_nats(x: HTerm): Chain {
   }
 }
 
+// The leaves depend on the match alone, and every pass walks the same match
+// again: keep them by node identity. Each walk compares its own coverage
+// against its own instance by a lowered stringify, which on a deep bit match
+// is the most expensive single thing a pass does.
+const LEAVES: WeakMap<HTerm, Leaf[]> = new WeakMap();
+
+function emit_lits(x: HTerm): Leaf[] {
+  return weak_memo(LEAVES, x, () => emit_lits_walk(x));
+}
+
 // A word match's leaves: the bits each knows (32: a hit), their value, its
 // arm, and the words it binds (none; the tail; a bit and its tail). A
 // default covers the deeper defaults and tail arms that are its instance
 // (the flattener's substitution replayed): a literal compares whole.
-function emit_lits(x: HTerm): Leaf[] {
+function emit_lits_walk(x: HTerm): Leaf[] {
   const ws: Leaf[] = [];
   const key = (t: HTerm): string => JSON.stringify(Bend.term_lower(t),
     (k, v) => k === "s" ? undefined : v?.$ === "Ann" ? Bend.term_strip(v) : v);
