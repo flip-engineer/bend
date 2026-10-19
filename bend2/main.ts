@@ -22,6 +22,7 @@ import type { BunPlugin } from "bun";
 
 import * as Bend from "./bend.ts";
 import * as Comp from "./comp.ts";
+import * as Cache from "./cache.ts";
 
 // Main
 // ====
@@ -248,7 +249,13 @@ async function cli_file(args: string[]): Promise<void> {
       if (ins.has(at) || (fs.existsSync(at) && fs.statSync(at).isDirectory())) {
         cli_fail("-o " + out + " is a file the program reads, or a directory");
       }
-      cli_emit(book, out);
+      if (out.endsWith(".c")) {
+        const emit = await Cache.emit_c(book, seen, file,
+          () => Comp.compile_book(book));
+        fs.writeFileSync(out, emit.c);
+      } else {
+        cli_emit(book, out);
+      }
     }
   } catch (e) {
     cli_say(2, book_err(e) + "\n");
