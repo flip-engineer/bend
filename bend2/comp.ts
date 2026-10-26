@@ -646,6 +646,7 @@ const LAYS: Map<string, Lay> = new Map();
 const CYCLES: Map<Bend.Name, boolean> = new Map();
 
 const CONSTS: Map<HTerm, boolean> = new Map();
+const CONSTS_CAP = 1 << 16;
 
 const LITS = new WeakMap<HTerm, HTerm>();
 
@@ -878,13 +879,27 @@ function term_nodes(cf: Carb, t: HTerm): number {
 
 function term_const(t: HTerm): boolean {
   const s = term_strip(t);
-  return s.$ === "Ctr" && (CONSTANTS.has(s) || memo(CONSTS, s, () => {
-    const value = s.x.every(term_const);
-    if (value) {
-      CONSTANTS.add(s);
-    }
-    return value;
-  }));
+  if (s.$ !== "Ctr") {
+    return false;
+  }
+  if (CONSTANTS.has(s)) {
+    return true;
+  }
+  const got = CONSTS.get(s);
+  if (got !== undefined) {
+    return got;
+  }
+  const value = s.x.every(term_const);
+  if (value) {
+    CONSTANTS.add(s);
+  }
+  // Check immediately before insertion so recursive frames cannot exceed the
+  // bound while unwinding.
+  if (CONSTS.size >= CONSTS_CAP) {
+    CONSTS.clear();
+  }
+  CONSTS.set(s, value);
+  return value;
 }
 
 function term_use(u: UMap, p: Probe): number {
